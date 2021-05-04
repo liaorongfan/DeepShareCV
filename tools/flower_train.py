@@ -14,7 +14,8 @@ from dscv.utiles.logger import make_logger
 from dscv.modeling.build import get_model
 from dscv.config.flower_config import cfg
 from dscv.checkpoint.save import save_model
-from dscv.data.flower.flower_102 import make_data_loader
+from dscv.data.datasets.flower_102 import make_data_loader
+from dscv.modeling.loss.label_smooth import LabelSmoothLoss
 
 # import sys
 # BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -51,7 +52,10 @@ def main(analysis_bad_case=False):
     model.to(device)  # to device， cpu or gpu
 
     # step3: 损失函数、优化器
-    loss_f = nn.CrossEntropyLoss()
+    if cfg.label_smooth:
+        loss_f = LabelSmoothLoss(cfg.label_smooth_eps)
+    else:
+        loss_f = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=cfg.lr_init, momentum=cfg.momentum, weight_decay=cfg.weight_decay)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, gamma=cfg.factor, milestones=cfg.milestones)
 
@@ -67,13 +71,15 @@ def main(analysis_bad_case=False):
     acc_rec = {"train": [], "valid": []}
     best_acc, best_epoch = 0, 0
     for epoch in range(cfg.max_epoch):
-
+        # train for one epoch
         loss_train, acc_train, mat_train, path_error_train = ModelTrainer.train(
             train_loader, model, loss_f, optimizer, scheduler, epoch, device, cfg, logger
         )
+        # eval for after training for a epoch
         loss_valid, acc_valid, mat_valid, path_error_valid = ModelTrainer.valid(
             valid_loader, model, loss_f, device
         )
+        # display info for that training epoch
         logger.info(
             "Epoch[{:0>3}/{:0>3}] Train Acc: {:.2%} Valid Acc:{:.2%} Train loss:{:.4f} Valid loss:{:.4f} LR:{}".
             format(
@@ -82,7 +88,7 @@ def main(analysis_bad_case=False):
                 optimizer.param_groups[0]["lr"]
             )
         )
-
+        # update training lr every epoch
         scheduler.step()
 
         # 记录训练信息

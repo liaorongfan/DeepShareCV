@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from collections import Counter
+from dscv.data.augment.mixup import mixup_data, mixup_criterion
 
 
 class ModelTrainer(object):
@@ -26,10 +27,19 @@ class ModelTrainer(object):
             # inputs, labels = data
             inputs, labels = inputs.to(device), labels.to(device)
 
+            # mix_up
+            if cfg.mixup:
+                mixed_inputs, label_a, label_b, lam = mixup_data(inputs, labels, cfg.mixup_alpha, device)
+                inputs = mixed_inputs  # 保持接口一致
+
             # forward & backward
             outputs = model(inputs)
             optimizer.zero_grad()
-            loss = loss_f(outputs.cpu(), labels.cpu())
+            # mix_up loss calculation
+            if cfg.mixup:
+                loss = mixup_criterion(loss_f, outputs.cpu(), label_a.cpu(), label_b.cpu(), lam)
+            else:
+                loss = loss_f(outputs.cpu(), labels.cpu())
             loss.backward()
             optimizer.step()
 
