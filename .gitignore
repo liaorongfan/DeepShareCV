@@ -2,7 +2,7 @@
 results/
 
 # project dirs
-datasets/*
+datasets/102flowers
 pretrained/
 /snippet
 
