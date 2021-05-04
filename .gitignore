@@ -2,7 +2,7 @@
 results/
 
 # project dirs
-datasets/*
+datasets
 pretrained/
 /snippet
 
